@@ -73,11 +73,11 @@ const translations: Translations = {
     'bn': 'ব্যবহারকারীর নাম'
   },
   'email_phone': {
-    'en': 'Email or Phone',
-    'hi': 'ईमेल या फोन',
-    'te': 'ఇమెయిల్ లేదా ఫోన్',
-    'ta': 'மின்னஞ்சல் அல்லது தொலைபேசி',
-    'bn': 'ইমেইল বা ফোন'
+    'en': 'Email',
+    'hi': 'ईमेल ',
+    'te': 'ఇమెయిల్',
+    'ta': 'மின்னஞ்சல்',
+    'bn': 'ইমেইল'
   },
   'password': {
     'en': 'Password',

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSelector from '@/components/LanguageSelector';
+import { supabase } from '@/lib/supabaseClient';
 
 interface AuthFormProps {
   onLogin: (role: 'farmer' | 'admin', userData: any) => void;
@@ -24,10 +25,34 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
     password: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate authentication - in real app, this would call Supabase
-    onLogin(role, { ...formData, role });
+    if (activeTab === 'login') {
+      // Login with email/phone and password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.emailPhone,
+        password: formData.password,
+      });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      onLogin(role, { ...formData, role, user: data.user });
+    } else {
+      // Signup with email/phone and password
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.emailPhone,
+        password: formData.password,
+        options: {
+          data: { username: formData.username, role },
+        },
+      });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      onLogin(role, { ...formData, role, user: data.user });
+    }
   };
 
   return (
