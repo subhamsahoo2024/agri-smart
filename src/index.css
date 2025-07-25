@@ -2,41 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* AgriSmart Design System - Nature meets Technology
+All colors MUST be HSL for proper theming.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Agricultural Background - Soft cream/white */
+    --background: 60 9% 98%;
+    --foreground: 120 10% 15%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Card and surface colors */
+    --card: 60 12% 97%;
+    --card-foreground: 120 10% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    /* Popover colors */
+    --popover: 60 12% 97%;
+    --popover-foreground: 120 10% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Agricultural Green */
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 142 76% 32%;
+    --primary-light: 142 76% 90%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Tech Blue */
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-hover: 217 91% 55%;
+    --secondary-light: 217 91% 90%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Accent - Warm Orange */
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 98%;
+    --accent-hover: 25 95% 48%;
+    --accent-light: 25 95% 90%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Earth tones */
+    --earth: 30 31% 45%;
+    --earth-foreground: 0 0% 98%;
+    --earth-light: 30 31% 90%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Muted colors */
+    --muted: 60 5% 92%;
+    --muted-foreground: 120 5% 45%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Success - Bright Green */
+    --success: 120 60% 50%;
+    --success-foreground: 0 0% 98%;
 
-    --radius: 0.5rem;
+    /* Warning - Golden Yellow */
+    --warning: 45 90% 55%;
+    --warning-foreground: 0 0% 15%;
+
+    /* Destructive - Red */
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Border and inputs */
+    --border: 120 13% 85%;
+    --input: 120 13% 90%;
+    --ring: 142 76% 36%;
+
+    /* Border radius */
+    --radius: 0.75rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(120 60% 45%));
+    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 60%), hsl(200 90% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(25 95% 53%), hsl(35 90% 50%));
+    --gradient-earth: linear-gradient(135deg, hsl(30 31% 45%), hsl(25 35% 40%));
+    --gradient-hero: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(120 60% 45%) 50%, hsl(217 91% 60%) 100%);
+    
+    /* Shadows with natural feel */
+    --shadow-soft: 0 2px 8px -2px hsl(120 10% 15% / 0.1);
+    --shadow-medium: 0 4px 16px -4px hsl(120 10% 15% / 0.15);
+    --shadow-large: 0 8px 32px -8px hsl(120 10% 15% / 0.2);
+    --shadow-glow: 0 0 20px hsl(142 76% 36% / 0.3);
+
+    /* Animation curves */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 
