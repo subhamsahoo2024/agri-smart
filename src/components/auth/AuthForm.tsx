@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSelector from '@/components/LanguageSelector';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthFormProps {
   onLogin: (role: 'farmer' | 'admin', userData: any) => void;
@@ -24,10 +25,70 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
     password: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate authentication - in real app, this would call Supabase
-    onLogin(role, { ...formData, role });
+    try {
+      if (activeTab === 'login') {
+        // Login with email and password
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.emailPhone,
+          password: formData.password,
+        });
+        if (error) throw error;
+        
+        // Get user role from user_roles table
+        const { data: userRole, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+        
+        if (roleError) {
+          console.error('Error fetching user role:', roleError);
+          alert('Error fetching user role');
+          return;
+        }
+        
+        onLogin(userRole.role as 'farmer' | 'admin', { 
+          ...formData, 
+          role: userRole.role, 
+          user: data.user 
+        });
+      } else {
+        // Signup with email and password
+        const redirectUrl = `${window.location.origin}/`;
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.emailPhone,
+          password: formData.password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: { username: formData.username }
+          },
+        });
+        
+        if (error) throw error;
+        
+        if (data.user) {
+          // Store user role in user_roles table
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: data.user.id,
+              role: role
+            });
+            
+          if (roleError) {
+            console.error('Error storing user role:', roleError);
+            alert('Error storing user role');
+            return;
+          }
+          
+          onLogin(role, { ...formData, role, user: data.user });
+        }
+      }
+    } catch (error: any) {
+      alert(error.message || 'An error occurred');
+    }
   };
 
   return (
