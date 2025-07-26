@@ -26,108 +26,32 @@ const GovernmentSchemes: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [bookmarkedSchemes, setBookmarkedSchemes] = useState<Set<string>>(new Set());
 
-  const schemes: Scheme[] = [
-    {
-      id: '1',
-      name: 'PM-KISAN Samman Nidhi',
-      type: 'Central',
-      category: 'Direct Benefit',
-      description: 'Income support scheme providing ₹6,000 per year to farmer families',
-      eligibility: [
-        'Small and marginal farmers',
-        'Land holding up to 2 hectares',
-        'Valid Aadhaar card required'
-      ],
-      benefits: [
-        '₹2,000 every 4 months',
-        'Direct bank transfer',
-        'No state government interference'
-      ],
-      deadline: '31 Dec 2024',
-      applicationLink: '#',
-      isBookmarked: false
-    },
-    {
-      id: '2',
-      name: 'Pradhan Mantri Fasal Bima Yojana',
-      type: 'Central',
-      category: 'Insurance',
-      description: 'Crop insurance scheme providing financial support against crop loss',
-      eligibility: [
-        'All farmers growing notified crops',
-        'Tenant farmers eligible',
-        'Premium amount as per crop and area'
-      ],
-      benefits: [
-        'Coverage for all stages of crop cycle',
-        'Use of technology for quick settlement',
-        'Low premium rates'
-      ],
-      deadline: '30 Nov 2024',
-      applicationLink: '#',
-      isBookmarked: false
-    },
-    {
-      id: '3',
-      name: 'Kisan Credit Card',
-      type: 'Central',
-      category: 'Credit',
-      description: 'Credit facility for farmers to meet their cultivation and other needs',
-      eligibility: [
-        'All farmers including tenant farmers',
-        'Valid land documents',
-        'No collateral required up to ₹1.6 lakh'
-      ],
-      benefits: [
-        'Simple documentation',
-        'Flexible repayment',
-        'Insurance coverage'
-      ],
-      deadline: 'Ongoing',
-      applicationLink: '#',
-      isBookmarked: false
-    },
-    {
-      id: '4',
-      name: 'Soil Health Card Scheme',
-      type: 'Central',
-      category: 'Soil Testing',
-      description: 'Provides soil health cards to farmers with nutrient status of their soil',
-      eligibility: [
-        'All farmers',
-        'Land holding documents required',
-        'Free of cost'
-      ],
-      benefits: [
-        'Free soil testing',
-        'Nutrient recommendations',
-        'Improved crop productivity'
-      ],
-      deadline: 'Ongoing',
-      applicationLink: '#',
-      isBookmarked: false
-    },
-    {
-      id: '5',
-      name: 'Organic Farming Scheme',
-      type: 'State',
-      category: 'Organic',
-      description: 'Support for farmers adopting organic farming practices',
-      eligibility: [
-        'Farmers willing to adopt organic practices',
-        'Minimum 5 acres of land',
-        'Group certification preferred'
-      ],
-      benefits: [
-        'Subsidy on organic inputs',
-        'Certification support',
-        'Market linkage assistance'
-      ],
-      deadline: '15 Jan 2025',
-      applicationLink: '#',
-      isBookmarked: false
-    }
-  ];
+   const [schemes, setSchemes] = useState<Scheme[]>([]); 
+
+  React.useEffect(() => {
+    fetch('https://newsapi.org/v2/everything?q=(agriculture+OR+farmers+OR+PM-KISAN+OR+crop+insurance)&language=en&sortBy=publishedAt&apiKey=d00b0e56477c4e488118dbbf460d52b6')
+    .then(res => res.json())
+      .then(data => {
+        if (data.articles && Array.isArray(data.articles)) {
+          const fetchedSchemes: Scheme[] = data.articles.map((article, index) => ({
+            id: `news-${index}`,
+            name: article.title || 'Farmer Update',
+            type: 'Central',
+            category: 'News',
+            description: article.description || 'No description available',
+            eligibility: ['All readers'],
+            benefits: ['Stay updated with latest farming and government updates'],
+            deadline: new Date(article.publishedAt).toLocaleDateString('en-IN'),
+            applicationLink: article.url || '#',
+            isBookmarked: false
+          }));
+          setSchemes(fetchedSchemes);
+        }
+      })
+      .catch(err => console.error('Error fetching news:', err));
+  }, []);
+
+
 
   const filteredSchemes = schemes.filter(scheme => {
     const matchesSearch = scheme.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -6,18 +6,21 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLanguage } from '@/contexts/LanguageContext';
+import axios from 'axios';
 
 interface DetectionResult {
   disease: string;
-  confidence: number;
-  severity: 'low' | 'medium' | 'high';
+  duration: string;
+  causative_agents: string[];
+  untreated_result: string;
+  preventive_measures: string[];
   treatment: string[];
-  prevention: string[];
 }
 
 const DiseaseDetection: React.FC = () => {
   const { t } = useLanguage();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [result, setResult] = useState<DetectionResult | null>(null);
@@ -28,73 +31,59 @@ const DiseaseDetection: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
-        setResult(null);
+        setImageFile(file);
+        analyzeImage(file); // Auto-analyze after selection
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const analyzeImage = () => {
-    if (!selectedImage) return;
-    
+  const analyzeImage = async (file: File) => {
     setIsAnalyzing(true);
     setAnalysisProgress(0);
-    
-    // Simulate AI analysis progress
+
     const interval = setInterval(() => {
       setAnalysisProgress(prev => {
-        if (prev >= 100) {
+        if (prev >= 95) {
           clearInterval(interval);
-          setIsAnalyzing(false);
-          
-          // Simulate analysis result
-          setResult({
-            disease: 'Leaf Blight',
-            confidence: 87,
-            severity: 'medium',
-            treatment: [
-              'Apply copper-based fungicide spray',
-              'Remove affected leaves immediately',
-              'Improve air circulation around plants',
-              'Reduce watering frequency'
-            ],
-            prevention: [
-              'Maintain proper plant spacing',
-              'Avoid overhead watering',
-              'Apply preventive fungicide during monsoon',
-              'Ensure good drainage in field'
-            ]
-          });
-          return 100;
         }
         return prev + 5;
       });
     }, 100);
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await axios.post('http://127.0.0.1:5000/predict-disease', formData);
+      const data = res.data;
+      setResult(data);
+    } catch (error) {
+      console.error('Prediction failed:', error);
+      alert("Failed to analyze image. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisProgress(100);
+    }
   };
 
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'low': return 'bg-success text-success-foreground';
-      case 'medium': return 'bg-warning text-warning-foreground';
-      case 'high': return 'bg-destructive text-destructive-foreground';
+    switch (severity.toLowerCase()) {
+      case 'low': return 'bg-green-100 text-green-700';
+      case 'medium': return 'bg-yellow-100 text-yellow-700';
+      case 'high': return 'bg-red-100 text-red-700';
       default: return 'bg-muted text-muted-foreground';
     }
   };
 
-  const recentDetections = [
-    { disease: 'Bacterial Wilt', crop: 'Tomato', date: '2 days ago', severity: 'high' },
-    { disease: 'Powdery Mildew', crop: 'Cucumber', date: '1 week ago', severity: 'low' },
-    { disease: 'Root Rot', crop: 'Wheat', date: '2 weeks ago', severity: 'medium' }
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Image Upload Card */}
+      {/* Upload Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Camera className="w-5 h-5" />
-            Upload Crop Image
+            Upload or Capture Crop Image
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -103,7 +92,7 @@ const DiseaseDetection: React.FC = () => {
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                 <Camera className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  Take a clear photo of affected crop leaves or upload from gallery
+                  Upload or capture a clear image of affected crop leaves
                 </p>
                 <div className="flex gap-3 justify-center">
                   <Button variant="outline" className="relative">
@@ -144,28 +133,19 @@ const DiseaseDetection: React.FC = () => {
                     onClick={() => {
                       setSelectedImage(null);
                       setResult(null);
+                      setAnalysisProgress(0);
                     }}
                   >
                     Change Image
                   </Button>
                 </div>
-                
-                {!result && !isAnalyzing && (
-                  <Button 
-                    onClick={analyzeImage}
-                    className="w-full bg-gradient-primary hover:shadow-glow"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Analyze Disease
-                  </Button>
-                )}
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Analysis Progress */}
+      {/* Analysis Loader */}
       {isAnalyzing && (
         <Card>
           <CardContent className="p-6">
@@ -185,52 +165,45 @@ const DiseaseDetection: React.FC = () => {
       {result && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Disease Detected
-              </span>
-              <Badge className={getSeverityColor(result.severity)}>
-                {result.severity.toUpperCase()}
-              </Badge>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Disease Analysis Result
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <h4 className="font-semibold text-lg">{result.disease}</h4>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Confidence:</span>
-                <Badge variant="outline">{result.confidence}%</Badge>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h5 className="font-medium mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-primary" />
-                  Recommended Treatment
-                </h5>
-                <ul className="space-y-2">
-                  {result.treatment.map((treatment, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
-                      {treatment}
-                    </li>
+            <div>
+              <h4 className="text-xl font-semibold">{result.disease}</h4>
+              <p className="text-sm text-muted-foreground mt-1">
+                Duration: {result.duration}
+              </p>
+              <div className="mt-2">
+                <h5 className="font-medium mb-1">Causative Agents:</h5>
+                <ul className="list-disc pl-5 text-sm">
+                  {result.causative_agents.map((agent, idx) => (
+                    <li key={idx}>{agent}</li>
                   ))}
                 </ul>
               </div>
 
-              <div>
-                <h5 className="font-medium mb-2 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-warning" />
-                  Prevention Tips
-                </h5>
-                <ul className="space-y-2">
-                  {result.prevention.map((tip, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="w-1.5 h-1.5 bg-warning rounded-full mt-2 flex-shrink-0" />
-                      {tip}
-                    </li>
+              <div className="mt-4">
+                <h5 className="font-medium mb-1">If Untreated:</h5>
+                <p className="text-sm text-red-700">{result.untreated_result}</p>
+              </div>
+
+              <div className="mt-4">
+                <h5 className="font-medium mb-1">Preventive Measures:</h5>
+                <ul className="list-disc pl-5 text-sm">
+                  {result.preventive_measures.map((step, idx) => (
+                    <li key={idx}>{step}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-4">
+                <h5 className="font-medium mb-1">Treatment Suggestions:</h5>
+                <ul className="list-disc pl-5 text-sm">
+                  {result.treatment.map((step, idx) => (
+                    <li key={idx}>{step}</li>
                   ))}
                 </ul>
               </div>
@@ -239,40 +212,12 @@ const DiseaseDetection: React.FC = () => {
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                Always consult with local agricultural experts before applying treatments. 
-                This AI analysis should be used as a preliminary assessment.
+                This result is based on AI analysis. Always confirm with a certified agricultural expert before applying treatment.
               </AlertDescription>
             </Alert>
           </CardContent>
         </Card>
       )}
-
-      {/* Recent Detections */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Detections</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {recentDetections.map((detection, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-              >
-                <div>
-                  <p className="font-medium">{detection.disease}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {detection.crop} • {detection.date}
-                  </p>
-                </div>
-                <Badge className={getSeverityColor(detection.severity)}>
-                  {detection.severity}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

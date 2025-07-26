@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Thermometer, Droplets, FlaskConical, CloudRain, TrendingUp, Sprout } from 'lucide-react';
+import {
+  Thermometer, Droplets, FlaskConical, CloudRain, TrendingUp, Sprout, MapPin
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,94 +20,81 @@ interface CropData {
 }
 
 interface FormData {
+  state: string;
   temperature: string;
   humidity: string;
-  ph: string;
   rainfall: string;
+  ph: string;
 }
 
 const CropRecommendation: React.FC = () => {
   const { t } = useLanguage();
   const [formData, setFormData] = useState<FormData>({
+    state: '',
     temperature: '',
     humidity: '',
-    ph: '',
-    rainfall: ''
+    rainfall: '',
+    ph: ''
   });
-  const [recommendations, setRecommendations] = useState<CropData[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const [recommendation, setRecommendation] = useState<CropData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [weatherFetched, setWeatherFetched] = useState(false);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'state') {
+      setWeatherFetched(false);  // Reset weather status on state change
+    }
   };
 
-  const analyzeConditions = () => {
-    if (!formData.temperature || !formData.humidity || !formData.ph || !formData.rainfall) {
+  const fetchWeatherData = async (state: string) => {
+    if (!state) return;
+    try {
+      const res = await fetch(`http://localhost:5000/weather?state=${encodeURIComponent(state)}`);
+      const data = await res.json();
+      console.log("Weather fetched:", data);
+
+      setFormData(prev => ({
+        ...prev,
+        temperature: data.temperature.toFixed(2),
+        humidity: data.humidity.toFixed(2),
+        rainfall: data.rainfall.toFixed(2)
+      }));
+      setWeatherFetched(true);
+    } catch (error) {
+      console.error('Weather fetch failed', error);
+      setWeatherFetched(false);
+    }
+  };
+
+  const analyzeConditions = async () => {
+    if (!formData.ph || !formData.temperature || !formData.humidity || !formData.rainfall) {
+      alert("Please complete all fields.");
       return;
     }
 
-    setIsAnalyzing(true);
-    
-    // Simulate AI analysis
-    setTimeout(() => {
-      const mockRecommendations: CropData[] = [
-        {
-          name: 'Rice',
-          icon: '🌾',
-          yield: '45-60 quintals/hectare',
-          profit: '₹35,000-50,000/hectare',
-          season: 'Kharif',
-          suitability: 95,
-          tips: [
-            'Ensure proper water management',
-            'Use disease-resistant varieties',
-            'Apply balanced fertilization'
-          ]
-        },
-        {
-          name: 'Wheat',
-          icon: '🌾',
-          yield: '40-55 quintals/hectare',
-          profit: '₹30,000-45,000/hectare',
-          season: 'Rabi',
-          suitability: 87,
-          tips: [
-            'Timely sowing is crucial',
-            'Monitor for rust diseases',
-            'Use quality seeds'
-          ]
-        },
-        {
-          name: 'Sugarcane',
-          icon: '🎋',
-          yield: '700-900 quintals/hectare',
-          profit: '₹80,000-120,000/hectare',
-          season: 'Annual',
-          suitability: 82,
-          tips: [
-            'Requires high water availability',
-            'Regular pest monitoring needed',
-            'Good market access essential'
-          ]
-        },
-        {
-          name: 'Cotton',
-          icon: '🌿',
-          yield: '15-25 quintals/hectare',
-          profit: '₹40,000-65,000/hectare',
-          season: 'Kharif',
-          suitability: 78,
-          tips: [
-            'Monitor for bollworm',
-            'Proper spacing important',
-            'Quality cotton fetches better prices'
-          ]
-        }
-      ];
-      
-      setRecommendations(mockRecommendations);
-      setIsAnalyzing(false);
-    }, 2000);
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/recommend-crop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temperature: parseFloat(formData.temperature),
+          humidity: parseFloat(formData.humidity),
+          rainfall: parseFloat(formData.rainfall),
+          ph: parseFloat(formData.ph)
+        })
+      });
+
+      const crop = await res.json();
+      console.log("Crop prediction:", crop);
+      setRecommendation(crop);
+    } catch (error) {
+      console.error('Prediction failed', error);
+      setRecommendation(null);
+    }
+    setIsLoading(false);
   };
 
   const getSuitabilityColor = (score: number) => {
@@ -116,53 +105,60 @@ const CropRecommendation: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Input Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FlaskConical className="w-5 h-5" />
-            Field Conditions
+            {t('Field Conditions')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="state" className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                Enter State
+              </Label>
+              <Input
+                id="state"
+                type="text"
+                placeholder="Tamil Nadu"
+                value={formData.state}
+                onBlur={() => fetchWeatherData(formData.state)}
+                onChange={(e) => handleInputChange('state', e.target.value)}
+              />
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="temperature" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <Thermometer className="w-4 h-4 text-destructive" />
                 Temperature (°C)
               </Label>
-              <Input
-                id="temperature"
-                type="number"
-                placeholder="25"
-                value={formData.temperature}
-                onChange={(e) => handleInputChange('temperature', e.target.value)}
-                className="h-12"
-              />
+              <Input value={formData.temperature} readOnly className="h-12" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="humidity" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <Droplets className="w-4 h-4 text-secondary" />
                 Humidity (%)
               </Label>
-              <Input
-                id="humidity"
-                type="number"
-                placeholder="65"
-                value={formData.humidity}
-                onChange={(e) => handleInputChange('humidity', e.target.value)}
-                className="h-12"
-              />
+              <Input value={formData.humidity} readOnly className="h-12" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ph" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
+                <CloudRain className="w-4 h-4 text-primary" />
+                Rainfall (mm)
+              </Label>
+              <Input value={formData.rainfall} readOnly className="h-12" />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-accent" />
                 Soil pH
               </Label>
               <Input
-                id="ph"
                 type="number"
                 step="0.1"
                 placeholder="6.5"
@@ -171,29 +167,14 @@ const CropRecommendation: React.FC = () => {
                 className="h-12"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="rainfall" className="flex items-center gap-2">
-                <CloudRain className="w-4 h-4 text-primary" />
-                Rainfall (mm)
-              </Label>
-              <Input
-                id="rainfall"
-                type="number"
-                placeholder="800"
-                value={formData.rainfall}
-                onChange={(e) => handleInputChange('rainfall', e.target.value)}
-                className="h-12"
-              />
-            </div>
           </div>
 
           <Button
             onClick={analyzeConditions}
-            disabled={isAnalyzing || !formData.temperature || !formData.humidity || !formData.ph || !formData.rainfall}
+            disabled={isLoading || !formData.ph || !weatherFetched}
             className="w-full mt-6 h-12 bg-gradient-primary hover:shadow-glow"
           >
-            {isAnalyzing ? (
+            {isLoading ? (
               <>
                 <FlaskConical className="w-4 h-4 mr-2 animate-spin" />
                 Analyzing Conditions...
@@ -201,96 +182,58 @@ const CropRecommendation: React.FC = () => {
             ) : (
               <>
                 <TrendingUp className="w-4 h-4 mr-2" />
-                Get Crop Recommendations
+                Get Crop Recommendation
               </>
             )}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Recommendations */}
-      {recommendations.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Recommended Crops</h3>
-          {recommendations.map((crop, index) => (
-            <Card key={index} className="hover:shadow-medium transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center text-2xl">
-                      {crop.icon}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-lg">{crop.name}</h4>
-                      <p className="text-sm text-muted-foreground">{crop.season} Season</p>
-                    </div>
-                  </div>
-                  <Badge className={getSuitabilityColor(crop.suitability)}>
-                    {crop.suitability}% Match
-                  </Badge>
+      {recommendation && (
+        <Card className="hover:shadow-medium transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center text-2xl">
+                  {recommendation.icon || '🌿'}
                 </div>
+                <div>
+                  <h4 className="font-semibold text-lg">{recommendation.name}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {recommendation.season || 'Season Info'} Season
+                  </p>
+                </div>
+              </div>
+              <Badge className={getSuitabilityColor(recommendation.suitability || 70)}>
+                {recommendation.suitability || 70}% Match
+              </Badge>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Expected Yield</p>
-                    <p className="font-semibold text-primary">{crop.yield}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Profit Potential</p>
-                    <p className="font-semibold text-success">{crop.profit}</p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Expected Yield</p>
+                <p className="font-semibold text-primary">{recommendation.yield || 'N/A'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Profit Potential</p>
+                <p className="font-semibold text-success">{recommendation.profit || 'N/A'}</p>
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Key Tips:</p>
-                  <ul className="space-y-1">
-                    {crop.tips.map((tip, tipIndex) => (
-                      <li key={tipIndex} className="flex items-start gap-2 text-sm">
-                        <Sprout className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
-                        {tip}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Key Tips:</p>
+              <ul className="space-y-1">
+                {(recommendation.tips || []).map((tip, index) => (
+                  <li key={index} className="flex items-start gap-2 text-sm">
+                    <Sprout className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
       )}
-
-      {/* Quick Tips */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Farming Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-              <Thermometer className="w-5 h-5 text-primary mt-0.5" />
-              <div>
-                <p className="font-medium text-sm">Temperature Range</p>
-                <p className="text-xs text-muted-foreground">Most crops thrive between 20-30°C</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/20">
-              <Droplets className="w-5 h-5 text-secondary mt-0.5" />
-              <div>
-                <p className="font-medium text-sm">Humidity Control</p>
-                <p className="text-xs text-muted-foreground">60-70% humidity is optimal for most crops</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-accent/5 border border-accent/20">
-              <FlaskConical className="w-5 h-5 text-accent mt-0.5" />
-              <div>
-                <p className="font-medium text-sm">Soil pH Balance</p>
-                <p className="text-xs text-muted-foreground">6.0-7.5 pH range suits most agricultural crops</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
