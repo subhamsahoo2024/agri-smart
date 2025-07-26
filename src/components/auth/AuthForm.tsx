@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, Sprout, Shield, Eye, EyeOff } from 'lucide-react';
+import { UserCheck, Sprout, Shield, Eye, EyeOff, Mail, Clock, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   const [activeTab, setActiveTab] = useState('login');
   const [role, setRole] = useState<'farmer' | 'admin'>('farmer');
   const [showPassword, setShowPassword] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [formData, setFormData] = useState({
     username: '',
     emailPhone: '',
@@ -27,6 +30,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    
     try {
       if (activeTab === 'login') {
         // Login with email and password
@@ -34,7 +39,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
           email: formData.emailPhone,
           password: formData.password,
         });
-        if (error) throw error;
+        
+        if (error) {
+          if (error.message.includes('Email not confirmed')) {
+            alert('Please verify your email address to complete registration.');
+            setIsLoading(false);
+            return;
+          }
+          throw error;
+        }
+
+        if (!data.user?.email_confirmed_at) {
+          alert('Please verify your email address to complete registration.');
+          setIsLoading(false);
+          return;
+        }
         
         // Get user role from user_roles table
         const { data: userRole, error: roleError } = await supabase
@@ -46,6 +65,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
         if (roleError) {
           console.error('Error fetching user role:', roleError);
           alert('Error fetching user role');
+          setIsLoading(false);
           return;
         }
         
@@ -55,39 +75,97 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
           user: data.user 
         });
       } else {
-        // Signup with email and password
+        // Check if email already exists
+        const { data: existingUser } = await supabase.auth.signInWithPassword({
+          email: formData.emailPhone,
+          password: 'dummy-password-check'
+        });
+        
+        if (existingUser?.user) {
+          alert('Email already registered. Please log in.');
+          setActiveTab('login');
+          setIsLoading(false);
+          return;
+        }
+
+        // Signup with email verification
         const redirectUrl = `${window.location.origin}/`;
         const { data, error } = await supabase.auth.signUp({
           email: formData.emailPhone,
           password: formData.password,
           options: {
             emailRedirectTo: redirectUrl,
-            data: { username: formData.username }
+            data: { 
+              username: formData.username,
+              role: role 
+            }
           },
         });
         
-        if (error) throw error;
-        
-        if (data.user) {
-          // Store user role in user_roles table
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: data.user.id,
-              role: role
-            });
-            
-          if (roleError) {
-            console.error('Error storing user role:', roleError);
-            alert('Error storing user role');
+        if (error) {
+          if (error.message.includes('already registered')) {
+            alert('Email already registered. Please log in.');
+            setActiveTab('login');
+            setIsLoading(false);
             return;
           }
-          
-          onLogin(role, { ...formData, role, user: data.user });
+          throw error;
+        }
+        
+        if (data.user && !data.user.email_confirmed_at) {
+          setVerificationSent(true);
+          // Start cooldown timer
+          setResendCooldown(60);
+          const timer = setInterval(() => {
+            setResendCooldown((prev) => {
+              if (prev <= 1) {
+                clearInterval(timer);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
         }
       }
     } catch (error: any) {
       alert(error.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (resendCooldown > 0) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: formData.emailPhone,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Start cooldown timer
+      setResendCooldown(60);
+      const timer = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      alert('Verification email sent!');
+    } catch (error: any) {
+      alert(error.message || 'Failed to resend verification');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -122,7 +200,57 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
           </CardHeader>
 
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {verificationSent ? (
+              // Email verification pending screen
+              <div className="text-center space-y-6">
+                <div className="w-16 h-16 bg-gradient-secondary rounded-2xl flex items-center justify-center mx-auto">
+                  <Mail className="w-8 h-8 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Check Your Email</h3>
+                  <p className="text-muted-foreground text-sm">
+                    We've sent a verification link to<br />
+                    <span className="font-medium text-foreground">{formData.emailPhone}</span>
+                  </p>
+                  <p className="text-muted-foreground text-xs mt-4">
+                    Please click the link in your email to complete registration.
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleResendVerification}
+                    disabled={resendCooldown > 0 || isLoading}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {isLoading ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : resendCooldown > 0 ? (
+                      <Clock className="w-4 h-4 mr-2" />
+                    ) : (
+                      <Mail className="w-4 h-4 mr-2" />
+                    )}
+                    {resendCooldown > 0 
+                      ? `Resend in ${resendCooldown}s` 
+                      : 'Resend Verification Email'
+                    }
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      setVerificationSent(false);
+                      setActiveTab('login');
+                    }}
+                    variant="ghost"
+                    className="w-full text-sm"
+                  >
+                    Back to Login
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-white">
                   {t('login')}
@@ -247,12 +375,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base font-medium bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                  disabled={isLoading}
+                  className="w-full h-12 text-base font-medium bg-gradient-primary hover:shadow-glow transition-all duration-300 disabled:opacity-50"
                 >
-                  {activeTab === 'login' ? t('login') : t('signup')}
+                  {isLoading ? (
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  ) : null}
+                  {isLoading 
+                    ? (activeTab === 'login' ? 'Signing In...' : 'Creating Account...') 
+                    : (activeTab === 'login' ? t('login') : t('signup'))
+                  }
                 </Button>
               </form>
             </Tabs>
+            )}
           </CardContent>
         </Card>
       </div>
